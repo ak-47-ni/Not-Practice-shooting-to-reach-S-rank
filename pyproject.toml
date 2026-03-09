@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "screen-human-lab"
+version = "0.1.0"
+description = "Controlled-lab screen capture and person-detection research framework"
+readme = "README.md"
+requires-python = ">=3.10,<3.14"
+dependencies = [
+  "numpy>=1.26,<2",
+  "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+runtime = [
+  "mss>=10.0.0",
+  "Pillow>=11.0.0",
+  "opencv-python>=4.10.0,<4.12",
+  "pyobjc-framework-Cocoa>=10.3",
+]
+mps = [
+  "torch>=2.5.0",
+  "ultralytics>=8.3.0",
+]
+cpu = [
+  "onnxruntime>=1.20.0",
+  "ultralytics>=8.3.0",
+]
+dev = [
+  "pytest>=8.3.0",
+]
+
+[project.scripts]
+screen-human-lab = "screen_human_lab.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

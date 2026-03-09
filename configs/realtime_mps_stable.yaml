@@ -1,0 +1,24 @@
+window_name: Screen Human Lab (MPS Stable)
+capture:
+  provider: mss
+  monitor: 1
+  target_fps: 20
+  roi_size: 500
+inference:
+  backend: auto
+  model_path: models/yolo11n.pt
+  confidence_threshold: 0.35
+  input_size: 640
+overlay:
+  enabled: true
+  show_fps: true
+  show_backend: true
+  mode: overlay
+  infer_only_while_right_mouse_down: true
+  cursor_follow_speed: 4000.0
+  cursor_follow_min_distance: 1.0
+tracking:
+  match_threshold: 0.55
+  search_padding: 36
+  max_search_padding: 96
+  prediction_gain: 1.4
