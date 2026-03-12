@@ -247,6 +247,7 @@ def run_overlay_session(
     cursor_follow_speed: float,
     cursor_follow_min_distance: float,
     tracker_factory=None,
+    stability_config=None,
 ) -> int:
     try:
         import AppKit
@@ -268,6 +269,7 @@ def run_overlay_session(
         backend=backend,
         overlay_state=overlay_state,
         tracker_factory=tracker_factory,
+        stability_config=stability_config,
     )
     screen_index = capture._config.monitor - 1
     screens = list(AppKit.NSScreen.screens())

@@ -20,6 +20,10 @@ runtime = [
   "opencv-python>=4.10.0,<4.12",
   "pyobjc-framework-Cocoa>=10.3",
 ]
+cuda = [
+  "torch>=2.5.0",
+  "ultralytics>=8.3.0",
+]
 mps = [
   "torch>=2.5.0",
   "ultralytics>=8.3.0",

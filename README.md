@@ -7,6 +7,7 @@
 - Real-time centered ROI screen capture
 - Zero-training experiments with pre-trained detectors
 - Dual backend support:
+  - NVIDIA GPU via `CUDA`
   - Apple GPU via `MPS`
   - CPU fallback via `ONNX Runtime`
 - Transparent overlay rendering on macOS
@@ -37,6 +38,15 @@ For CPU-only validation in the same environment:
 python -m pip install -e ".[runtime,cpu,dev]"
 ```
 
+
+For Windows preview workflows on NVIDIA hardware, install the CUDA route instead:
+
+```bash
+python -m pip install -e ".[runtime,cuda,dev]"
+```
+
+The Windows-first preview configs use the standard preview window rather than the macOS transparent overlay.
+
 ## Model Files
 
 Place local detector weights under `models/`.
@@ -65,6 +75,15 @@ CPU route:
 ```bash
 python -m screen_human_lab.cli --config configs/realtime_cpu.yaml --headless --max-frames 10
 ```
+
+Windows preview route:
+
+```bash
+python -m screen_human_lab.cli --config configs/realtime_win_cuda.yaml
+python -m screen_human_lab.cli --config configs/realtime_win_cpu.yaml
+```
+
+The Windows preview configs are Windows-first and keep the ordinary preview window visible while the runtime applies motion compensation, lock-state handling, and filtered target output for better stability.
 
 Tracking presets:
 

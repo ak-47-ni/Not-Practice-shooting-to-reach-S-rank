@@ -12,6 +12,7 @@ except ImportError:
     cv2 = None
 
 
+
 def render_overlay(
     frame: np.ndarray,
     detections: Sequence[Detection],
@@ -19,14 +20,22 @@ def render_overlay(
     *,
     backend_name: str,
     frame_index: int,
+    debug_lines: Sequence[str] | None = None,
 ) -> np.ndarray:
     canvas = frame.copy()
 
     for detection in detections:
         _draw_box(canvas, detection.bbox)
 
-    _draw_header(canvas, backend_name=backend_name, fps=metrics.get("fps", 0.0), frame_index=frame_index)
+    _draw_header(
+        canvas,
+        backend_name=backend_name,
+        fps=metrics.get("fps", 0.0),
+        frame_index=frame_index,
+        debug_lines=debug_lines or (),
+    )
     return canvas
+
 
 
 def _draw_box(frame: np.ndarray, bbox: tuple[int, int, int, int], color: tuple[int, int, int] = (0, 255, 0)) -> None:
@@ -46,21 +55,31 @@ def _draw_box(frame: np.ndarray, bbox: tuple[int, int, int, int], color: tuple[i
     frame[y1 : y2 + 1, max(x2 - 1, 0) : x2 + 1] = color
 
 
-def _draw_header(frame: np.ndarray, *, backend_name: str, fps: float, frame_index: int) -> None:
-    banner_height = min(18, frame.shape[0])
-    frame[0:banner_height, 0 : min(frame.shape[1], 180)] = (20, 20, 20)
+
+def _draw_header(
+    frame: np.ndarray,
+    *,
+    backend_name: str,
+    fps: float,
+    frame_index: int,
+    debug_lines: Sequence[str],
+) -> None:
+    line_count = 1 + len(debug_lines)
+    banner_height = min(18 * line_count, frame.shape[0])
+    frame[0:banner_height, 0 : min(frame.shape[1], 240)] = (20, 20, 20)
 
     if cv2 is None:
         return
 
-    text = f"#{frame_index} {backend_name} {fps:.1f} fps"
-    cv2.putText(
-        frame,
-        text,
-        (4, banner_height - 5),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        0.45,
-        (255, 255, 255),
-        1,
-        cv2.LINE_AA,
-    )
+    lines = [f"#{frame_index} {backend_name} {fps:.1f} fps", *debug_lines]
+    for index, line in enumerate(lines):
+        cv2.putText(
+            frame,
+            line,
+            (4, 13 + (index * 16)),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.45,
+            (255, 255, 255),
+            1,
+            cv2.LINE_AA,
+        )

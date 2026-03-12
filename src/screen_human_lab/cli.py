@@ -10,7 +10,7 @@ from screen_human_lab.capture.imagegrab_capture import ImageGrabCapture
 from screen_human_lab.capture.mss_capture import MSSCapture
 from screen_human_lab.config import CaptureConfig, TrackingConfig, load_config
 from screen_human_lab.inference.factory import build_backend
-from screen_human_lab.pipeline.runtime import RuntimeSession
+from screen_human_lab.pipeline.runtime import RuntimeSession, StablePreviewSession
 from screen_human_lab.tracking.template_match import TemplateMatchTracker
 
 
@@ -41,8 +41,14 @@ def build_tracker_factory(config: TrackingConfig) -> TrackerFactory:
 
 
 
-def should_use_macos_overlay(*, headless: bool, overlay_mode: str) -> bool:
-    return (not headless) and sys.platform == "darwin" and overlay_mode == "overlay"
+def should_use_macos_overlay(*, headless: bool, overlay_mode: str, platform: str | None = None) -> bool:
+    resolved_platform = sys.platform if platform is None else platform
+    return (not headless) and resolved_platform == "darwin" and overlay_mode == "overlay"
+
+
+def should_use_windows_overlay(*, headless: bool, overlay_mode: str, platform: str | None = None) -> bool:
+    resolved_platform = sys.platform if platform is None else platform
+    return (not headless) and resolved_platform == "win32" and overlay_mode == "overlay"
 
 
 
@@ -53,8 +59,12 @@ def maybe_reexec_for_mps_fallback(
     env: MutableMapping[str, str] | None = None,
     execvpe: Execvpe = os.execvpe,
     executable: str | None = None,
+    platform: str | None = None,
 ) -> bool:
+    resolved_platform = sys.platform if platform is None else platform
     runtime_env = os.environ if env is None else env
+    if resolved_platform != "darwin":
+        return False
     if preferred_backend not in {"auto", "mps"}:
         return False
     if runtime_env.get("PYTORCH_ENABLE_MPS_FALLBACK"):
@@ -76,12 +86,31 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 
-def _run_headless_preview(*, capture, backend, enable_overlay: bool, max_frames: int | None, window_name: str, headless: bool) -> int:
-    session = RuntimeSession(
-        capture=capture,
-        backend=backend,
-        enable_overlay=enable_overlay,
-    )
+def _run_headless_preview(
+    *,
+    capture,
+    backend,
+    tracker_factory,
+    stability_config,
+    enable_overlay: bool,
+    max_frames: int | None,
+    window_name: str,
+    headless: bool,
+) -> int:
+    if stability_config.enabled:
+        session = StablePreviewSession(
+            capture=capture,
+            backend=backend,
+            tracker_factory=tracker_factory,
+            stability_config=stability_config,
+            enable_overlay=enable_overlay,
+        )
+    else:
+        session = RuntimeSession(
+            capture=capture,
+            backend=backend,
+            enable_overlay=enable_overlay,
+        )
     try:
         processed = session.run(
             max_frames=max_frames,
@@ -106,6 +135,23 @@ def main(argv: list[str] | None = None) -> int:
     backend = build_backend(config.inference)
     tracker_factory = build_tracker_factory(config.tracking)
 
+    if should_use_windows_overlay(headless=args.headless, overlay_mode=config.overlay.mode):
+        from screen_human_lab.overlay.windows_overlay import run_overlay_session
+
+        try:
+            return run_overlay_session(
+                capture=capture,
+                backend=backend,
+                target_fps=config.capture.target_fps,
+                infer_only_while_right_mouse_down=config.overlay.infer_only_while_right_mouse_down,
+                cursor_follow_speed=config.overlay.cursor_follow_speed,
+                cursor_follow_min_distance=config.overlay.cursor_follow_min_distance,
+                tracker_factory=tracker_factory,
+                stability_config=config.stability,
+            )
+        finally:
+            capture.close()
+
     if should_use_macos_overlay(headless=args.headless, overlay_mode=config.overlay.mode):
         from screen_human_lab.overlay.appkit_overlay import run_overlay_session
 
@@ -118,6 +164,7 @@ def main(argv: list[str] | None = None) -> int:
                 cursor_follow_speed=config.overlay.cursor_follow_speed,
                 cursor_follow_min_distance=config.overlay.cursor_follow_min_distance,
                 tracker_factory=tracker_factory,
+                stability_config=config.stability,
             )
         finally:
             capture.close()
@@ -125,6 +172,8 @@ def main(argv: list[str] | None = None) -> int:
     processed = _run_headless_preview(
         capture=capture,
         backend=backend,
+        tracker_factory=tracker_factory,
+        stability_config=config.stability,
         enable_overlay=config.overlay.enabled,
         max_frames=args.max_frames,
         window_name=config.window_name,

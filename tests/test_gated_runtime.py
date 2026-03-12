@@ -65,7 +65,7 @@ class _FakeTracker:
     def initialize(self, frame: np.ndarray, bbox: tuple[int, int, int, int]) -> None:
         self.initialize_calls.append(bbox)
 
-    def update(self, frame: np.ndarray) -> TrackingResult:
+    def update(self, frame: np.ndarray, motion_hint: tuple[float, float] | None = None) -> TrackingResult:
         self.update_calls += 1
         if self.updates:
             return self.updates.pop(0)
@@ -224,3 +224,23 @@ def test_gated_service_clears_lock_when_becoming_inactive() -> None:
     assert tracker.clear_calls >= 1
     assert backend.calls == 2
     assert resumed.detections[0].bbox == (150, 260, 180, 300)
+
+
+def test_runtime_can_return_local_detections_for_preview_path() -> None:
+    capture = _FakeCapture()
+    backend = _FakeBackend(predictions=[[Detection(label="person", confidence=0.9, bbox=(10, 20, 30, 40))]])
+    overlay_state = _FakeOverlayState()
+    tracker = _FakeTracker([])
+    runtime = GatedDetectionRuntime(
+        capture=capture,
+        backend=backend,
+        overlay_state=overlay_state,
+        tracker_factory=_FakeTrackerFactory(tracker),
+        globalize_output=False,
+    )
+
+    result = runtime.process_once(active=True)
+
+    assert result.frame is not None
+    assert result.state == "locked"
+    assert result.detections[0].bbox == (10, 20, 30, 40)

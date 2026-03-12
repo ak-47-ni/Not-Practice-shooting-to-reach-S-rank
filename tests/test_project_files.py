@@ -13,12 +13,22 @@ def test_package_metadata_files_exist() -> None:
 def test_runtime_config_files_exist() -> None:
     assert (ROOT / "configs" / "realtime_mps.yaml").exists()
     assert (ROOT / "configs" / "realtime_cpu.yaml").exists()
+    assert (ROOT / "configs" / "realtime_win_cuda.yaml").exists()
+    assert (ROOT / "configs" / "realtime_win_cpu.yaml").exists()
 
 
 def test_readme_mentions_taichi_py_conda_environment() -> None:
     readme_text = (ROOT / "README.md").read_text(encoding="utf-8")
 
     assert "Taichi_py" in readme_text
+
+
+def test_readme_mentions_windows_preview_workflow() -> None:
+    readme_text = (ROOT / "README.md").read_text(encoding="utf-8")
+
+    assert "Windows" in readme_text
+    assert "realtime_win_cuda.yaml" in readme_text
+    assert "preview" in readme_text
 
 
 def test_pyproject_supports_taichi_py_python_version() -> None:
@@ -43,6 +53,14 @@ def test_pyproject_declares_pyobjc_cocoa_for_overlay() -> None:
     pyproject_text = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
 
     assert "\"pyobjc-framework-Cocoa>=10.3\"" in pyproject_text
+
+
+def test_pyproject_declares_cuda_optional_dependencies() -> None:
+    pyproject_text = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+
+    assert "cuda = [" in pyproject_text
+    assert '"torch>=2.5.0"' in pyproject_text
+    assert '"ultralytics>=8.3.0"' in pyproject_text
 
 
 def test_test_plan_mentions_right_mouse_gated_detection() -> None:
@@ -83,6 +101,14 @@ def test_tracking_preset_files_exist() -> None:
     assert (ROOT / "configs" / "realtime_mps_fast.yaml").exists()
     assert (ROOT / "configs" / "realtime_cpu_stable.yaml").exists()
     assert (ROOT / "configs" / "realtime_cpu_fast.yaml").exists()
+
+
+def test_windows_cuda_config_uses_preview_mode() -> None:
+    config_text = (ROOT / "configs" / "realtime_win_cuda.yaml").read_text(encoding="utf-8")
+
+    assert "backend: auto" in config_text
+    assert "mode: preview" in config_text
+    assert "stability:" in config_text
 
 
 def test_tracking_preset_files_define_tracking_keys() -> None:
@@ -132,3 +158,14 @@ def test_test_plan_mentions_dx_dy_overlay() -> None:
     test_plan_text = (ROOT / "docs" / "testing" / "test-plan.md").read_text(encoding="utf-8")
 
     assert "dx/dy" in test_plan_text
+
+
+def test_windows_overlay_config_exists() -> None:
+    assert (ROOT / "configs" / "realtime_win_overlay_cuda.yaml").exists()
+
+
+def test_windows_overlay_config_uses_overlay_mode() -> None:
+    config_text = (ROOT / "configs" / "realtime_win_overlay_cuda.yaml").read_text(encoding="utf-8")
+
+    assert "mode: overlay" in config_text
+    assert "infer_only_while_right_mouse_down: true" in config_text

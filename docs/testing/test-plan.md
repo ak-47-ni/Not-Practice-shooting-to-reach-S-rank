@@ -2,9 +2,9 @@
 
 ## Summary
 
-- Feature/Change: Centered ROI capture, transparent overlay, right mouse gated detection, `L` hotkey service toggle, single target lock with re-detect after more than 5 lost frames, adaptive lock tracking presets, and dx/dy overlay readout
+- Feature/Change: Centered ROI capture, transparent overlay, right mouse gated detection, `L` hotkey service toggle, single target lock with re-detect after more than 5 lost frames, adaptive lock tracking presets, dx/dy overlay readout, and a Windows-first preview stability pipeline
 - Module/Area: Config, ROI geometry, capture cropping, gated runtime, overlay state, CLI workflow
-- Scope: Unit tests for geometry and scheduling plus manual smoke checks for the macOS overlay workflow
+- Scope: Unit tests for geometry, stability, and scheduling plus manual smoke checks for the Windows preview workflow and the macOS overlay workflow
 
 ## Test Mapping (1:1)
 
@@ -16,7 +16,9 @@
 | Add template tracker | `src/screen_human_lab/tracking/template_match.py` | Validate translated target tracking and disappearance failure | `tests/test_template_tracker.py` |
 | Add overlay state container | `src/screen_human_lab/overlay/state.py` | Validate clear-on-release behavior, service enabled state, and dx/dy offset helpers | `tests/test_overlay_state.py` |
 | Add overlay control logic | `src/screen_human_lab/overlay/control.py` | Validate `L` hotkey matching and service activation rules | `tests/test_overlay_control.py` |
-| Extend config and packaging | `src/screen_human_lab/config.py`, `pyproject.toml` | Validate ROI fields and Cocoa dependency declaration | `tests/test_config.py`, `tests/test_project_files.py` |
+| Extend config and packaging | `src/screen_human_lab/config.py`, `pyproject.toml` | Validate ROI fields, CUDA auto-selection, and Cocoa dependency declaration | `tests/test_config.py`, `tests/test_project_files.py` |
+| Add stability helpers | `src/screen_human_lab/pipeline/global_motion.py`, `src/screen_human_lab/pipeline/target_scoring.py`, `src/screen_human_lab/pipeline/lock_state.py`, `src/screen_human_lab/pipeline/target_filter.py` | Validate motion compensation, scoring, state transitions, and smoothing | `tests/test_global_motion.py`, `tests/test_target_scoring.py`, `tests/test_lock_state.py`, `tests/test_target_filter.py` |
+| Add Windows preview runtime | `src/screen_human_lab/pipeline/runtime.py`, `src/screen_human_lab/cli.py` | Validate local stabilized detections for preview sessions | `tests/test_preview_runtime.py`, `tests/test_cli_runtime.py` |
 | Switch interactive workflow | `src/screen_human_lab/cli.py` | Validate fallback re-exec, overlay workflow selection, and tracker factory wiring | `tests/test_cli_runtime.py` |
 
 ## Test Cases

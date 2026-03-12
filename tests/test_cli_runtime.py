@@ -1,7 +1,12 @@
 from pathlib import Path
 
 from screen_human_lab.config import TrackingConfig
-from screen_human_lab.cli import build_tracker_factory, maybe_reexec_for_mps_fallback, should_use_macos_overlay
+from screen_human_lab.cli import (
+    build_tracker_factory,
+    maybe_reexec_for_mps_fallback,
+    should_use_macos_overlay,
+    should_use_windows_overlay,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -21,6 +26,7 @@ def test_maybe_reexec_for_mps_fallback_reexecs_for_auto_backend() -> None:
             env={},
             execvpe=fake_exec,
             executable="python-test",
+            platform="darwin",
         )
     except SystemExit:
         pass
@@ -44,6 +50,7 @@ def test_maybe_reexec_for_mps_fallback_skips_when_env_already_set() -> None:
         env={"PYTORCH_ENABLE_MPS_FALLBACK": "1"},
         execvpe=fake_exec,
         executable="python-test",
+        platform="darwin",
     )
 
     assert result is False
@@ -63,6 +70,27 @@ def test_maybe_reexec_for_mps_fallback_skips_for_cpu_backend() -> None:
         env={},
         execvpe=fake_exec,
         executable="python-test",
+        platform="darwin",
+    )
+
+    assert result is False
+    assert called is False
+
+
+def test_maybe_reexec_for_mps_fallback_skips_for_cuda_backend() -> None:
+    called = False
+
+    def fake_exec(executable: str, args: list[str], env: dict[str, str]) -> None:
+        nonlocal called
+        called = True
+
+    result = maybe_reexec_for_mps_fallback(
+        preferred_backend="cuda",
+        argv=["--config", "configs/realtime_win_cuda.yaml"],
+        env={},
+        execvpe=fake_exec,
+        executable="python-test",
+        platform="win32",
     )
 
     assert result is False
@@ -70,9 +98,17 @@ def test_maybe_reexec_for_mps_fallback_skips_for_cpu_backend() -> None:
 
 
 def test_should_use_macos_overlay_respects_headless_and_mode() -> None:
-    assert should_use_macos_overlay(headless=False, overlay_mode="overlay") is True
-    assert should_use_macos_overlay(headless=True, overlay_mode="overlay") is False
-    assert should_use_macos_overlay(headless=False, overlay_mode="preview") is False
+    assert should_use_macos_overlay(headless=False, overlay_mode="overlay", platform="darwin") is True
+    assert should_use_macos_overlay(headless=False, overlay_mode="overlay", platform="win32") is False
+    assert should_use_macos_overlay(headless=True, overlay_mode="overlay", platform="darwin") is False
+    assert should_use_macos_overlay(headless=False, overlay_mode="preview", platform="darwin") is False
+
+
+def test_should_use_windows_overlay_respects_headless_and_mode() -> None:
+    assert should_use_windows_overlay(headless=False, overlay_mode="overlay", platform="win32") is True
+    assert should_use_windows_overlay(headless=True, overlay_mode="overlay", platform="win32") is False
+    assert should_use_windows_overlay(headless=False, overlay_mode="preview", platform="win32") is False
+    assert should_use_windows_overlay(headless=False, overlay_mode="overlay", platform="darwin") is False
 
 
 def test_default_configs_enable_overlay_roi_and_right_mouse_gate() -> None:
@@ -89,7 +125,6 @@ def test_default_configs_enable_overlay_roi_and_right_mouse_gate() -> None:
     assert "infer_only_while_right_mouse_down: true" in cpu_text
     assert "cursor_follow_speed:" in cpu_text
     assert "cursor_follow_min_distance:" in cpu_text
-
 
 
 def test_build_tracker_factory_uses_tracking_config_values() -> None:

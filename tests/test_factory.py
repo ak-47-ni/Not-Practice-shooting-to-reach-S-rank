@@ -31,13 +31,51 @@ def test_build_backend_uses_explicit_backend_builder() -> None:
     assert backend.device == "mps"
 
 
+def test_build_backend_uses_explicit_cuda_builder() -> None:
+    config = InferenceConfig(backend="cuda", model_path="models/demo.pt")
+
+    backend = build_backend(
+        config,
+        cuda_available=True,
+        mps_available=False,
+        backend_builders={
+            "cuda": lambda _: _FakeBackend("torch-cuda", "cuda"),
+            "mps": lambda _: _FakeBackend("torch-mps", "mps"),
+            "cpu": lambda _: _FakeBackend("onnx-cpu", "cpu"),
+        },
+    )
+
+    assert backend.name == "torch-cuda"
+    assert backend.device == "cuda"
+
+
+def test_build_backend_uses_auto_selected_cuda_builder() -> None:
+    config = InferenceConfig(backend="auto", model_path="models/demo.pt")
+
+    backend = build_backend(
+        config,
+        cuda_available=True,
+        mps_available=False,
+        backend_builders={
+            "cuda": lambda _: _FakeBackend("torch-cuda", "cuda"),
+            "mps": lambda _: _FakeBackend("torch-mps", "mps"),
+            "cpu": lambda _: _FakeBackend("onnx-cpu", "cpu"),
+        },
+    )
+
+    assert backend.name == "torch-cuda"
+    assert backend.device == "cuda"
+
+
 def test_build_backend_uses_auto_selected_cpu_builder() -> None:
     config = InferenceConfig(backend="auto", model_path="models/demo.onnx")
 
     backend = build_backend(
         config,
+        cuda_available=False,
         mps_available=False,
         backend_builders={
+            "cuda": lambda _: _FakeBackend("torch-cuda", "cuda"),
             "mps": lambda _: _FakeBackend("torch-mps", "mps"),
             "cpu": lambda _: _FakeBackend("onnx-cpu", "cpu"),
         },
@@ -56,8 +94,10 @@ def test_build_backend_raises_actionable_error_for_missing_optional_dependency()
     with pytest.raises(RuntimeError, match="Install the optional dependency"):
         build_backend(
             config,
+            cuda_available=False,
             mps_available=True,
             backend_builders={
+                "cuda": lambda _: _FakeBackend("torch-cuda", "cuda"),
                 "mps": _broken_builder,
                 "cpu": lambda _: _FakeBackend("onnx-cpu", "cpu"),
             },

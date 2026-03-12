@@ -59,3 +59,18 @@ def test_template_tracker_uses_motion_prediction_for_faster_second_move() -> Non
     assert first.success is True
     assert second.success is True
     assert second.bbox == (38, 30, 58, 50)
+
+
+def test_template_tracker_accepts_motion_hint_for_large_translation() -> None:
+    tracker = TemplateMatchTracker(
+        match_threshold=0.45,
+        search_padding=4,
+        max_search_padding=8,
+        prediction_gain=0.0,
+    )
+    tracker.initialize(_make_frame(x=20, y=20), (20, 20, 40, 40))
+
+    result = tracker.update(_make_frame(x=34, y=32), motion_hint=(14, 12))
+
+    assert result.success is True
+    assert result.bbox == (34, 32, 54, 52)

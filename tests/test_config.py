@@ -57,11 +57,15 @@ tracking:
 
 
 def test_select_runtime_backend_prefers_mps_when_available() -> None:
-    assert select_runtime_backend("auto", mps_available=True) == "mps"
+    assert select_runtime_backend("auto", cuda_available=False, mps_available=True, platform="darwin") == "mps"
+
+
+def test_select_runtime_backend_prefers_cuda_when_available() -> None:
+    assert select_runtime_backend("auto", cuda_available=True, mps_available=False, platform="win32") == "cuda"
 
 
 def test_select_runtime_backend_falls_back_to_cpu_when_mps_unavailable() -> None:
-    assert select_runtime_backend("auto", mps_available=False) == "cpu"
+    assert select_runtime_backend("auto", cuda_available=False, mps_available=False, platform="win32") == "cpu"
 
 
 def test_select_runtime_backend_rejects_unknown_value() -> None:
@@ -82,3 +86,39 @@ def test_load_config_defaults_tracking_when_section_is_missing(tmp_path: Path) -
     assert config.tracking.prediction_gain == 0.0
     assert config.overlay.cursor_follow_speed == 4000.0
     assert config.overlay.cursor_follow_min_distance == 1.0
+    assert config.stability.enabled is True
+    assert config.stability.enable_global_motion is True
+    assert config.stability.max_lost_frames == 5
+    assert config.stability.smoothing_factor == 0.35
+
+
+def test_load_config_parses_stability_section(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        """
+window_name: Demo
+stability:
+  enabled: true
+  enable_global_motion: false
+  max_lost_frames: 7
+  confidence_weight: 0.8
+  iou_weight: 1.6
+  distance_weight: 0.9
+  size_weight: 0.2
+  smoothing_factor: 0.25
+  switch_margin: 0.18
+""".strip(),
+        encoding="utf-8",
+    )
+
+    config = load_config(config_path)
+
+    assert config.stability.enabled is True
+    assert config.stability.enable_global_motion is False
+    assert config.stability.max_lost_frames == 7
+    assert config.stability.confidence_weight == 0.8
+    assert config.stability.iou_weight == 1.6
+    assert config.stability.distance_weight == 0.9
+    assert config.stability.size_weight == 0.2
+    assert config.stability.smoothing_factor == 0.25
+    assert config.stability.switch_margin == 0.18

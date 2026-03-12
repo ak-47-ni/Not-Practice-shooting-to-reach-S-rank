@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -7,7 +8,7 @@ from typing import Any
 import yaml
 
 
-SUPPORTED_BACKENDS = {"auto", "mps", "cpu"}
+SUPPORTED_BACKENDS = {"auto", "cuda", "mps", "cpu"}
 SUPPORTED_CAPTURE_PROVIDERS = {"mss", "imagegrab"}
 SUPPORTED_OVERLAY_MODES = {"preview", "overlay"}
 
@@ -17,6 +18,18 @@ DEFAULT_TRACKING_SEARCH_PADDING = 24
 DEFAULT_TRACKING_PREDICTION_GAIN = 0.0
 DEFAULT_CURSOR_FOLLOW_SPEED = 4000.0
 DEFAULT_CURSOR_FOLLOW_MIN_DISTANCE = 1.0
+DEFAULT_STABILITY_MAX_LOST_FRAMES = 5
+DEFAULT_STABILITY_SMOOTHING_FACTOR = 0.35
+DEFAULT_SWITCH_MARGIN = 0.15
+
+
+def is_cuda_available() -> bool:
+    try:
+        import torch
+    except ImportError:
+        return False
+
+    return bool(torch.cuda.is_available())
 
 
 def is_mps_available() -> bool:
@@ -30,15 +43,30 @@ def is_mps_available() -> bool:
 
 
 
-def select_runtime_backend(preferred: str, mps_available: bool | None = None) -> str:
+def select_runtime_backend(
+    preferred: str,
+    *,
+    cuda_available: bool | None = None,
+    mps_available: bool | None = None,
+    platform: str | None = None,
+) -> str:
     if preferred not in SUPPORTED_BACKENDS:
         raise ValueError(f"Unsupported backend '{preferred}'. Expected one of {sorted(SUPPORTED_BACKENDS)}")
 
     if preferred != "auto":
         return preferred
 
-    available = is_mps_available() if mps_available is None else mps_available
-    return "mps" if available else "cpu"
+    resolved_platform = sys.platform if platform is None else platform
+    cuda_ready = is_cuda_available() if cuda_available is None else cuda_available
+    mps_ready = is_mps_available() if mps_available is None else mps_available
+
+    if cuda_ready:
+        return "cuda"
+    if resolved_platform == "darwin" and mps_ready:
+        return "mps"
+    if mps_ready:
+        return "mps"
+    return "cpu"
 
 
 @dataclass(frozen=True)
@@ -69,7 +97,7 @@ class InferenceConfig:
     input_size: int = 640
 
     def __post_init__(self) -> None:
-        select_runtime_backend(self.backend, mps_available=False)
+        select_runtime_backend(self.backend, cuda_available=False, mps_available=False, platform="linux")
         if self.model_path is not None and not self.model_path.strip():
             raise ValueError("model_path cannot be empty")
         if not 0.0 < self.confidence_threshold <= 1.0:
@@ -118,12 +146,36 @@ class TrackingConfig:
 
 
 @dataclass(frozen=True)
+class StabilityConfig:
+    enabled: bool = True
+    enable_global_motion: bool = True
+    max_lost_frames: int = DEFAULT_STABILITY_MAX_LOST_FRAMES
+    confidence_weight: float = 0.8
+    iou_weight: float = 1.6
+    distance_weight: float = 0.9
+    size_weight: float = 0.2
+    smoothing_factor: float = DEFAULT_STABILITY_SMOOTHING_FACTOR
+    switch_margin: float = DEFAULT_SWITCH_MARGIN
+
+    def __post_init__(self) -> None:
+        if self.max_lost_frames < 0:
+            raise ValueError("max_lost_frames must be >= 0")
+        for field_name in ("confidence_weight", "iou_weight", "distance_weight", "size_weight", "switch_margin"):
+            value = float(getattr(self, field_name))
+            if value < 0.0:
+                raise ValueError(f"{field_name} must be >= 0.0")
+        if not 0.0 <= self.smoothing_factor <= 1.0:
+            raise ValueError("smoothing_factor must be within [0.0, 1.0]")
+
+
+@dataclass(frozen=True)
 class AppConfig:
     window_name: str = "Screen Human Lab"
     capture: CaptureConfig = field(default_factory=CaptureConfig)
     inference: InferenceConfig = field(default_factory=InferenceConfig)
     overlay: OverlayConfig = field(default_factory=OverlayConfig)
     tracking: TrackingConfig = field(default_factory=TrackingConfig)
+    stability: StabilityConfig = field(default_factory=StabilityConfig)
 
 
 
@@ -157,6 +209,7 @@ def load_config(path: str | Path) -> AppConfig:
         overlay_payload = dict(overlay_payload)
         overlay_payload["infer_only_while_right_mouse_down"] = overlay_payload.pop("infer_only_while_left_mouse_down")
     tracking_payload = _ensure_mapping(payload.get("tracking"), "tracking")
+    stability_payload = _ensure_mapping(payload.get("stability"), "stability")
 
     return AppConfig(
         window_name=str(payload.get("window_name", "Screen Human Lab")),
@@ -164,4 +217,5 @@ def load_config(path: str | Path) -> AppConfig:
         inference=InferenceConfig(**inference_payload),
         overlay=OverlayConfig(**overlay_payload),
         tracking=TrackingConfig(**tracking_payload),
+        stability=StabilityConfig(**stability_payload),
     )

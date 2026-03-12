@@ -1,0 +1,34 @@
+window_name: Screen Human Lab (Windows CPU)
+capture:
+  provider: mss
+  monitor: 1
+  target_fps: 10
+  roi_size: 500
+inference:
+  backend: cpu
+  model_path: models/yolo11n.onnx
+  confidence_threshold: 0.35
+  input_size: 640
+overlay:
+  enabled: true
+  show_fps: true
+  show_backend: true
+  mode: preview
+  infer_only_while_right_mouse_down: false
+  cursor_follow_speed: 4000.0
+  cursor_follow_min_distance: 1.0
+tracking:
+  match_threshold: 0.55
+  search_padding: 36
+  max_search_padding: 96
+  prediction_gain: 1.0
+stability:
+  enabled: true
+  enable_global_motion: true
+  max_lost_frames: 5
+  confidence_weight: 0.8
+  iou_weight: 1.6
+  distance_weight: 0.9
+  size_weight: 0.2
+  smoothing_factor: 0.35
+  switch_margin: 0.15

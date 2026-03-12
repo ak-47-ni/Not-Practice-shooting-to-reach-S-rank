@@ -2,8 +2,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-import cv2
 import numpy as np
+
+try:
+    import cv2
+except ImportError:
+    cv2 = None
 
 
 ADAPTIVE_PADDING_VELOCITY_SCALE = 2.0
@@ -46,23 +50,25 @@ class TemplateMatchTracker:
         self._velocity_x = 0.0
         self._velocity_y = 0.0
 
-    def update(self, frame: np.ndarray) -> TrackingResult:
+    def update(self, frame: np.ndarray, motion_hint: tuple[float, float] | None = None) -> TrackingResult:
         if self._bbox is None or self._template_gray is None:
             return TrackingResult(success=False, bbox=None, score=0.0)
 
         gray = _to_gray(frame)
+        motion_delta_x = 0.0 if motion_hint is None else motion_hint[0]
+        motion_delta_y = 0.0 if motion_hint is None else motion_hint[1]
         predicted_bbox = _shift_bbox(
             self._bbox,
-            delta_x=self._velocity_x * self._prediction_gain,
-            delta_y=self._velocity_y * self._prediction_gain,
+            delta_x=(self._velocity_x * self._prediction_gain) + motion_delta_x,
+            delta_y=(self._velocity_y * self._prediction_gain) + motion_delta_y,
         )
         x1, y1, x2, y2 = predicted_bbox
         template_height, template_width = self._template_gray.shape
         padding = _compute_adaptive_padding(
             base_padding=self._search_padding,
             max_padding=self._max_search_padding,
-            velocity_x=self._velocity_x,
-            velocity_y=self._velocity_y,
+            velocity_x=self._velocity_x + motion_delta_x,
+            velocity_y=self._velocity_y + motion_delta_y,
         )
         pad_x = max(padding, template_width // 2)
         pad_y = max(padding, template_height // 2)
@@ -76,8 +82,7 @@ class TemplateMatchTracker:
         if search_region.shape[0] < template_height or search_region.shape[1] < template_width:
             return TrackingResult(success=False, bbox=None, score=0.0)
 
-        result = cv2.matchTemplate(search_region, self._template_gray, cv2.TM_CCOEFF_NORMED)
-        _min_val, max_val, _min_loc, max_loc = cv2.minMaxLoc(result)
+        max_val, max_loc = _match_template(search_region, self._template_gray)
         if np.isnan(max_val) or max_val < self._match_threshold:
             return TrackingResult(success=False, bbox=None, score=float(max_val) if not np.isnan(max_val) else 0.0)
 
@@ -102,7 +107,12 @@ class TemplateMatchTracker:
 def _to_gray(frame: np.ndarray) -> np.ndarray:
     if frame.ndim == 2:
         return frame
-    return cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    if cv2 is not None:
+        return cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    red = frame[..., 0].astype(np.float32)
+    green = frame[..., 1].astype(np.float32)
+    blue = frame[..., 2].astype(np.float32)
+    return ((0.299 * red) + (0.587 * green) + (0.114 * blue)).astype(np.float32)
 
 
 
@@ -134,3 +144,33 @@ def _compute_adaptive_padding(*, base_padding: int, max_padding: int, velocity_x
     speed = max(abs(velocity_x), abs(velocity_y))
     expanded_padding = base_padding + int(round(speed * ADAPTIVE_PADDING_VELOCITY_SCALE))
     return min(max_padding, max(base_padding, expanded_padding))
+
+
+
+def _match_template(search_region: np.ndarray, template: np.ndarray) -> tuple[float, tuple[int, int]]:
+    if cv2 is not None:
+        result = cv2.matchTemplate(search_region, template, cv2.TM_CCOEFF_NORMED)
+        _min_val, max_val, _min_loc, max_loc = cv2.minMaxLoc(result)
+        return (float(max_val), (int(max_loc[0]), int(max_loc[1])))
+
+    template_float = template.astype(np.float32)
+    template_centered = template_float - template_float.mean()
+    template_norm = float(np.sqrt(np.square(template_centered).sum()))
+    if template_norm == 0.0:
+        return (0.0, (0, 0))
+
+    template_height, template_width = template.shape
+    best_score = -1.0
+    best_loc = (0, 0)
+    for top in range(search_region.shape[0] - template_height + 1):
+        for left in range(search_region.shape[1] - template_width + 1):
+            patch = search_region[top : top + template_height, left : left + template_width].astype(np.float32)
+            patch_centered = patch - patch.mean()
+            patch_norm = float(np.sqrt(np.square(patch_centered).sum()))
+            if patch_norm == 0.0:
+                continue
+            score = float((patch_centered * template_centered).sum() / (patch_norm * template_norm))
+            if score > best_score:
+                best_score = score
+                best_loc = (left, top)
+    return (best_score, best_loc)
