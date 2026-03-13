@@ -96,5 +96,5 @@ On the current `Taichi_py` environment, the CLI will automatically relaunch itse
 Unit tests can run directly in `Taichi_py`:
 
 ```bash
-conda run -p /Users/ljs/conda/envs/Taichi_py python -m pytest -q
+conda run -p python -m pytest -q
 ```
