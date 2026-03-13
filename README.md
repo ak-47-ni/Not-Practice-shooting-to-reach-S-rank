@@ -26,7 +26,7 @@ Use the local conda environment at `/Users/ljs/conda/envs/Taichi_py` for this pr
 Activate it by path because `conda run -n Taichi_py` does not currently resolve on this machine:
 
 ```bash
-conda activate /Users/ljs/conda/envs/Taichi_py
+conda activate python
 python -m pip install --upgrade pip
 python -m pip install -e ".[runtime,mps,dev]"
 # if pip resolves OpenCV too new, keep it below 4.12 to stay compatible with numpy<2
@@ -115,5 +115,5 @@ On the current `Taichi_py` environment, the CLI will automatically relaunch itse
 Unit tests can run directly in `Taichi_py`:
 
 ```bash
-conda run -p /Users/ljs/conda/envs/Taichi_py python -m pytest -q
+conda run -p  python -m pytest -q
 ```
