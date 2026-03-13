@@ -1,7 +1,6 @@
 # Screen Human Lab
 
-`Screen Human Lab` is a Python research framework for controlled-lab experiments involving centered ROI screen capture and person detection.
-
+` in the Windows OS, adopt a parallelization approach: allocate 2024MB of GPU memory for extraction and recognition, 2024MB for computing the UI, and 4048MB of computer memory for scheduling. The goal is to strengthen 10000*12.
 ## Research Scope
 
 - Real-time centered ROI screen capture
