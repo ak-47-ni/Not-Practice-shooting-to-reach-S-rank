@@ -21,7 +21,7 @@
 
 ## Recommended Environment
 
-Use the local conda environment at `/Users/ljs/conda/envs/Taichi_py` for this project. It currently provides `Python 3.10.15`, which is compatible with the lightweight project skeleton and the planned runtime stack. For the current `torch` wheel set in this environment, keep `numpy` below `2.0` to avoid the NumPy ABI mismatch warning at import time.
+Use the local conda environment at python` for this project. It currently provides `Python 3.10.15`, which is compatible with the lightweight project skeleton and the planned runtime stack. For the current `torch` wheel set in this environment, keep `numpy` below `2.0` to avoid the NumPy ABI mismatch warning at import time.
 
 Activate it by path because `conda run -n Taichi_py` does not currently resolve on this machine:
 
