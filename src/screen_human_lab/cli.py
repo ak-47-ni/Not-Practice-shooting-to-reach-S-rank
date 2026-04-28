@@ -10,6 +10,7 @@ from screen_human_lab.capture.imagegrab_capture import ImageGrabCapture
 from screen_human_lab.capture.mss_capture import MSSCapture
 from screen_human_lab.config import CaptureConfig, TrackingConfig, load_config
 from screen_human_lab.inference.factory import build_backend
+from screen_human_lab.pipeline.recording import RoiRecordingSession
 from screen_human_lab.pipeline.runtime import RuntimeSession, StablePreviewSession
 from screen_human_lab.tracking.template_match import TemplateMatchTracker
 
@@ -82,6 +83,10 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--config", type=Path, required=True, help="Path to YAML config file")
     parser.add_argument("--max-frames", type=int, default=None, help="Stop after N frames")
     parser.add_argument("--headless", action="store_true", help="Disable the interactive overlay and preview window")
+    parser.add_argument("--record-roi", type=Path, default=None, help="Record centered ROI frames to this output directory")
+    parser.add_argument("--record-interval", type=int, default=1, help="Save one ROI frame every N captured frames")
+    parser.add_argument("--record-prefix", default="roi", help="Filename prefix for recorded ROI images")
+    parser.add_argument("--record-manual", action="store_true", help="Manually sample ROI frames with p/n/h/q hotkeys")
     return parser
 
 
@@ -132,6 +137,22 @@ def main(argv: list[str] | None = None) -> int:
     maybe_reexec_for_mps_fallback(preferred_backend=config.inference.backend, argv=cli_args)
 
     capture = build_capture(config.capture)
+    if args.record_roi is not None:
+        session = RoiRecordingSession(
+            capture=capture,
+            output_dir=args.record_roi,
+            config_name=str(args.config),
+            interval_frames=args.record_interval,
+            filename_prefix=args.record_prefix,
+        )
+        if args.record_manual:
+            print("Manual ROI sampling: p=positive, n=negative, h=hard, Enter=skip, q/Esc=quit")
+            saved = session.run_manual(max_frames=args.max_frames)
+        else:
+            saved = session.run(max_frames=args.max_frames)
+        print(f"Recorded {saved} ROI frame(s) to {args.record_roi}")
+        return 0
+
     backend = build_backend(config.inference)
     tracker_factory = build_tracker_factory(config.tracking)
 

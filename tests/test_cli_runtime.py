@@ -3,6 +3,7 @@ from pathlib import Path
 from screen_human_lab.config import TrackingConfig
 from screen_human_lab.cli import (
     build_tracker_factory,
+    main,
     maybe_reexec_for_mps_fallback,
     should_use_macos_overlay,
     should_use_windows_overlay,
@@ -136,3 +137,52 @@ def test_build_tracker_factory_uses_tracking_config_values() -> None:
     assert tracker._search_padding == 36
     assert tracker._max_search_padding == 96
     assert tracker._prediction_gain == 1.4
+
+
+def test_cli_record_roi_mode_uses_capture_without_building_backend(monkeypatch, tmp_path) -> None:
+    calls: dict[str, object] = {}
+
+    class FakeCapture:
+        def close(self) -> None:
+            calls["capture_closed"] = True
+
+    class FakeRecordingSession:
+        def __init__(self, **kwargs) -> None:
+            calls["session_kwargs"] = kwargs
+
+        def run(self, *, max_frames: int | None = None) -> int:
+            calls["max_frames"] = max_frames
+            return 2
+
+        def run_manual(self, *, max_frames: int | None = None) -> int:
+            calls["max_frames"] = max_frames
+            calls["run_manual"] = True
+            return 2
+
+    def fail_build_backend(_config):
+        raise AssertionError("record mode should not build an inference backend")
+
+    monkeypatch.setattr("screen_human_lab.cli.build_capture", lambda _config: FakeCapture())
+    monkeypatch.setattr("screen_human_lab.cli.build_backend", fail_build_backend)
+    monkeypatch.setattr("screen_human_lab.cli.RoiRecordingSession", FakeRecordingSession)
+
+    exit_code = main(
+        [
+            "--config",
+            str(ROOT / "configs" / "realtime_win_cuda.yaml"),
+            "--record-roi",
+            str(tmp_path),
+            "--record-interval",
+            "3",
+            "--record-manual",
+            "--max-frames",
+            "9",
+        ]
+    )
+
+    assert exit_code == 0
+    assert calls["max_frames"] == 9
+    session_kwargs = calls["session_kwargs"]
+    assert session_kwargs["output_dir"] == tmp_path
+    assert session_kwargs["interval_frames"] == 3
+    assert calls["run_manual"] is True

@@ -85,6 +85,23 @@ python -m screen_human_lab.cli --config configs/realtime_win_cpu.yaml
 
 The Windows preview configs are Windows-first and keep the ordinary preview window visible while the runtime applies motion compensation, lock-state handling, and filtered target output for better stability.
 
+ROI dataset capture mode:
+
+```bash
+python -m screen_human_lab.cli --config configs/realtime_win_cuda.yaml --record-roi dataset/raw --record-interval 5 --max-frames 500
+python -m screen_human_lab.cli --config configs/realtime_win_cuda.yaml --record-roi dataset/raw --record-manual --max-frames 500
+```
+
+This records centered ROI PNG frames under `dataset/raw/images/` and writes a `dataset/raw/manifest.jsonl` file with frame index, config path, ROI geometry, and label state metadata. Use this mode to collect real screen samples for manual `upper_body_target` annotation. `--record-interval` saves one frame every N captured frames; increase it when recording from continuous motion to avoid many near-duplicate samples.
+
+Manual sampling mode saves only the frames you mark:
+
+- `p`: positive sample with a target to annotate
+- `n`: negative sample such as empty ROI, UI clutter, or confusing background
+- `h`: hard sample such as partial occlusion, blur, edge-of-ROI target, or known unstable case
+- `Enter`: skip current frame
+- `q` or `Esc`: quit sampling
+
 Tracking presets:
 
 ```bash
